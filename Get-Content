@@ -7,7 +7,7 @@
 ## ✅ Full Command
 
 ```powershell
-Get-Content src\app\[store]\dashboard\inventory\inventory-content.tsx `
+Get-Content "src\app\[store]\dashboard\inventory\inventory-content.tsx" `
   | Select-String "overflow|min-w|sm:max-w|sm:text-3xl|flex-col"
 ```
 
