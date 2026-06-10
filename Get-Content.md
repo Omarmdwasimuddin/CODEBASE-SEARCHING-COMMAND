@@ -4,105 +4,119 @@
 
 ---
 
-## ✅ Full Command
+## 📌 দুটো Scenario
+
+| Scenario | Path-এ কী আছে | Command |
+|----------|---------------|---------|
+| **Case 1** | `[]` নেই (normal path) | `Get-Content "path"` |
+| **Case 2** | `[]` আছে (Next.js dynamic route) | `Get-Content -LiteralPath "path"` |
+
+---
+
+## ✅ Case 1 — Path-এ `[ ]` নেই
 
 ```powershell
-Get-Content "src\app\[store]\dashboard\inventory\inventory-content.tsx" 
-  | Select-String "overflow|min-w|sm:max-w|sm:text-3xl|flex-col"
+PS C:\Users\Wasim\ims-project> Get-Content "src\components\ui\button.tsx" | Select-String "overflow|flex-col"
+```
+
+### 🔬 Command Prompt বিশ্লেষণ
+
+```
+PS C:\Users\Wasim\ims-project> Get-Content "src\components\ui\button.tsx" | Select-String "overflow|flex-col"
+└──────────────────────────────┘ └──────────┘ └────────────────────────┘   └────────────┘ └────────────────┘
+        [১] Prompt               [২] Cmdlet       [৩] File Path               [৪] Cmdlet    [৫] Pattern
+```
+
+| # | অংশ | বিবরণ |
+|---|-----|--------|
+| [১] | `PS C:\Users\Wasim\ims-project>` | PowerShell Prompt — বর্তমান directory দেখাচ্ছে |
+| [২] | `Get-Content` | ফাইলটি পড়ে লাইন বাই লাইন output করে (`cat`-এর মতো) |
+| [৩] | `"src\components\ui\button.tsx"` | Normal path — কোনো `[]` নেই, তাই সরাসরি quote-এ দেওয়াই যথেষ্ট |
+| [৪] | `Select-String` | প্রতিটি লাইনে pattern খোঁজে (`grep`-এর মতো) |
+| [৫] | `"overflow\|flex-col"` | Regex OR — `overflow` **অথবা** `flex-col` যে লাইনে আছে সেটি দেখাবে |
+
+### 📤 Output
+
+```
+src\components\ui\button.tsx:8:   <div className="flex flex-col gap-2">
+src\components\ui\button.tsx:15:  <span className="overflow-hidden text-ellipsis">
 ```
 
 ---
 
-## 🔬 Command Anatomy (অংশভিত্তিক বিশ্লেষণ)
+## ⚠️ Case 2 — Path-এ `[ ]` আছে (Next.js Dynamic Route)
+
+### সমস্যাটা কী?
+
+Next.js Dynamic Route ফোল্ডারের নাম হয় `[store]`, `[id]`, `[slug]` ইত্যাদি।
+PowerShell-এ `[` এবং `]` হলো **wildcard character** — এগুলো দিয়ে character range বোঝায় (যেমন `[abc]` মানে a, b, বা c)।
+
+ফলে শুধু quote দিলেও PowerShell path-কে সঠিকভাবে বোঝে না এবং error দেয়:
+
+```powershell
+# ❌ এটা কাজ করবে না
+PS C:\Users\Wasim\ims-project> Get-Content "src\app\[store]\dashboard\sales\sales-content.tsx" | Select-String "overflow"
+
+# Output:
+# Get-Content: Cannot find path '...' because it does not exist.
+```
+
+### ✅ সমাধান: `-LiteralPath` Flag
+
+```powershell
+PS C:\Users\Wasim\ims-project> Get-Content -LiteralPath "src\app\[store]\dashboard\sales\sales-content.tsx" | Select-String "overflow|min-h|max-h|lg:flex-row"
+```
+
+### 🔬 Command Prompt বিশ্লেষণ
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                                                                             │
-│   Get-Content   src\app\[store]\dashboard\inventory\inventory-content.tsx   │
-│   └──────────┘  └──────────────────────────────────────────────────────┘   │
-│    [১] Cmdlet              [২] File Path                                    │
-│                                                                             │
-│        |  (pipe)                                                            │
-│        ↓                                                                    │
-│                                                                             │
-│   Select-String  "overflow|min-w|sm:max-w|sm:text-3xl|flex-col"            │
-│   └────────────┘  └──────────────────────────────────────────────┘         │
-│    [৩] Cmdlet              [৪] Search Pattern (Regex)                      │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
+PS C:\Users\Wasim\ims-project> Get-Content -LiteralPath "src\app\[store]\dashboard\sales\sales-content.tsx" | Select-String "overflow|min-h|max-h|lg:flex-row"
+└──────────────────────────────┘ └──────────┘ └──────────┘ └──────────────────────────────────────────────┘   └────────────┘ └────────────────────────────────┘
+        [১] Prompt               [২] Cmdlet   [৩] Flag              [৪] File Path                              [৫] Cmdlet         [৬] Pattern
+```
+
+| # | অংশ | বিবরণ |
+|---|-----|--------|
+| [১] | `PS C:\Users\Wasim\ims-project>` | PowerShell Prompt — বর্তমান directory |
+| [২] | `Get-Content` | ফাইলটি পড়ে লাইন বাই লাইন output করে |
+| [৩] | `-LiteralPath` | **এই flag-টাই মূল সমাধান** — path-কে exactly literal হিসেবে নেয়, কোনো wildcard interpretation করে না |
+| [৪] | `"src\app\[store]\dashboard\sales\sales-content.tsx"` | Path — `[store]` এখন আক্ষরিক ফোল্ডার নাম হিসেবে পড়া হচ্ছে |
+| [৫] | `Select-String` | প্রতিটি লাইনে pattern খোঁজে |
+| [৬] | `"overflow\|min-h\|max-h\|lg:flex-row"` | Regex OR — এই ৪টির যেকোনো একটি যে লাইনে আছে সেটি দেখাবে |
+
+### 📤 Output
+
+```
+src\app\[store]\dashboard\sales\sales-content.tsx:11:  <div className="min-h-screen overflow-hidden">
+src\app\[store]\dashboard\sales\sales-content.tsx:29:  <div className="lg:flex-row flex-col gap-4">
+src\app\[store]\dashboard\sales\sales-content.tsx:45:  <section className="max-h-[400px] overflow-y-auto">
 ```
 
 ---
 
-## 📖 প্রতিটি অংশের বিস্তারিত ব্যাখ্যা
-
-### [১] `Get-Content`
-| বিষয় | বিবরণ |
-|-------|--------|
-| ধরন | PowerShell Built-in Cmdlet |
-| কাজ | নির্দিষ্ট ফাইলটি পড়ে প্রতিটি **লাইন** আলাদাভাবে output করে |
-| Linux equivalent | `cat` |
-
----
-
-### [২] `src\app\[store]\dashboard\inventory\inventory-content.tsx`
-| বিষয় | বিবরণ |
-|-------|--------|
-| ধরন | File Path (relative) |
-| অর্থ | প্রোজেক্টের `src/app/[store]/dashboard/inventory/` ফোল্ডারের ভেতরের `inventory-content.tsx` ফাইল |
-| `[store]` | Next.js Dynamic Route Segment — ফোল্ডারের নাম আক্ষরিকভাবেই `[store]` |
-| `\` (backslash) | Windows-এ path separator হিসেবে ব্যবহার হয় |
-
----
-
-### [৩] `|` (Pipe Operator)
-| বিষয় | বিবরণ |
-|-------|--------|
-| কাজ | `Get-Content`-এর output কে `Select-String`-এর input হিসেবে পাঠায় |
-| অর্থ | "এক command-এর result পরের command-এ দাও" |
-
----
-
-### [৪] `Select-String "overflow|min-w|sm:max-w|sm:text-3xl|flex-col"`
-| বিষয় | বিবরণ |
-|-------|--------|
-| ধরন | PowerShell Built-in Cmdlet |
-| কাজ | প্রতিটি লাইনে Pattern খোঁজে, যে লাইনে match পায় সেটি print করে |
-| Linux equivalent | `grep` |
-| `"..."` | Search pattern (double quote-এর ভেতরে) |
-| `\|` (pipe in pattern) | Regex OR operator — "এটা **অথবা** ওটা" মানে |
-
----
-
-### 🎯 Search Pattern বিশ্লেষণ
+## 🆚 Case 1 vs Case 2 — পার্থক্য এক নজরে
 
 ```
-"overflow|min-w|sm:max-w|sm:text-3xl|flex-col"
-    ↑         ↑       ↑          ↑         ↑
-    ①         ②       ③          ④         ⑤
+Case 1 ([] নেই):
+─────────────────────────────────────────────────────────────────────
+  Get-Content  "src\components\ui\button.tsx"  |  Select-String "..."
+  └──────────┘  └──────────────────────────┘
+   Cmdlet         Normal path → quote-ই যথেষ্ট
+
+
+Case 2 ([] আছে):
+─────────────────────────────────────────────────────────────────────
+  Get-Content  -LiteralPath  "src\app\[store]\dashboard\..."  |  Select-String "..."
+  └──────────┘ └───────────┘  └────────────────────────────┘
+   Cmdlet       Flag (জরুরি)    [] সহ path → LiteralPath লাগবেই
 ```
 
-| # | Pattern | কী খোঁজে |
-|---|---------|-----------|
-| ① | `overflow` | `overflow-hidden`, `overflow-auto`, `overflow-x-scroll` ইত্যাদি |
-| ② | `min-w` | `min-w-0`, `min-w-full`, `min-w-[200px]` ইত্যাদি |
-| ③ | `sm:max-w` | `sm:max-w-sm`, `sm:max-w-[90%]` ইত্যাদি |
-| ④ | `sm:text-3xl` | Tailwind responsive text size class |
-| ⑤ | `flex-col` | `flex-col`, `sm:flex-col` ইত্যাদি |
-
-> **নোট:** `|` হলো Regex OR — মানে এই ৫টির যেকোনো **একটি** যে লাইনে আছে, সেই লাইন output-এ আসবে।
-
----
-
-## 📤 Output কেমন দেখায়?
-
-```
-src\app\[store]\dashboard\inventory\inventory-content.tsx:12:  <div className="flex flex-col overflow-hidden">
-src\app\[store]\dashboard\inventory\inventory-content.tsx:34:  <h1 className="sm:text-3xl text-xl font-bold">
-src\app\[store]\dashboard\inventory\inventory-content.tsx:57:  <div className="min-w-0 flex-1">
-```
-
-**Format:**  `ফাইল পাথ : লাইন নম্বর : লাইনের content`
+| | Case 1 | Case 2 |
+|--|--------|--------|
+| Path-এ `[]` | নেই | আছে |
+| Extra flag লাগে? | ❌ না | ✅ হ্যাঁ (`-LiteralPath`) |
+| Quote লাগে? | ✅ হ্যাঁ | ✅ হ্যাঁ |
+| Error হওয়ার সম্ভাবনা | নেই | `-LiteralPath` না দিলে হবেই |
 
 ---
 
@@ -110,21 +124,27 @@ src\app\[store]\dashboard\inventory\inventory-content.tsx:57:  <div className="m
 
 ### শুধু লাইন নম্বর দেখাতে চাইলে
 ```powershell
-Get-Content src\app\[store]\dashboard\inventory\inventory-content.tsx `
-  | Select-String "overflow|min-w|sm:max-w|sm:text-3xl|flex-col" `
+# [] নেই
+PS C:\Users\Wasim\ims-project> Get-Content "src\components\ui\button.tsx" `
+  | Select-String "overflow|flex-col" `
+  | Select-Object LineNumber, Line
+
+# [] আছে
+PS C:\Users\Wasim\ims-project> Get-Content -LiteralPath "src\app\[store]\dashboard\sales\sales-content.tsx" `
+  | Select-String "overflow|min-h|max-h|lg:flex-row" `
   | Select-Object LineNumber, Line
 ```
 
 ### Case-sensitive search করতে চাইলে
 ```powershell
-Get-Content src\app\[store]\dashboard\inventory\inventory-content.tsx `
+PS C:\Users\Wasim\ims-project> Get-Content -LiteralPath "src\app\[store]\dashboard\sales\sales-content.tsx" `
   | Select-String "overflow|flex-col" -CaseSensitive
 ```
 
 ### একাধিক ফাইলে একসাথে খুঁজতে চাইলে
 ```powershell
-Get-ChildItem src\app\[store]\dashboard\ -Recurse -Filter "*.tsx" `
-  | Select-String "overflow|min-w|sm:max-w|sm:text-3xl|flex-col"
+PS C:\Users\Wasim\ims-project> Get-ChildItem -LiteralPath "src\app\[store]\dashboard\" -Recurse -Filter "*.tsx" `
+  | Select-String "overflow|min-h|max-h|lg:flex-row"
 ```
 
 ---
@@ -132,22 +152,19 @@ Get-ChildItem src\app\[store]\dashboard\ -Recurse -Filter "*.tsx" `
 ## 🗺️ Visual Flow
 
 ```
-inventory-content.tsx
-        │
-        │  Get-Content (লাইন বাই লাইন পড়ে)
-        ↓
-┌───────────────────┐
-│  line 1           │
-│  line 2           │  ──→  Select-String  ──→  matched লাইনগুলো print
-│  line 3  ✅ match │              ↑
-│  line 4           │     "overflow|min-w|..."
-│  ...              │
-└───────────────────┘
+                    ┌──────────────────────────────────────────────────────────┐
+                    │                   PowerShell Terminal                    │
+                    │                                                          │
+  Path-এ [] নেই?   │  Get-Content "path"  ──pipe──→  Select-String "pattern"  │
+                    │                                                          │
+  Path-এ [] আছে?   │  Get-Content -LiteralPath "path"  ──pipe──→  Select-String "pattern" │
+                    └──────────────────────────────────────────────────────────┘
+                                          │
+                                          ↓
+                              matched লাইনগুলো print হয়
+                         format: ফাইল পাথ : লাইন নম্বর : content
 ```
 
 ---
 
-> **💡 মনে রাখো:** এই command টি essentially PowerShell-এর `grep` — Linux/macOS-এ একই কাজ করতে লিখতে হতো:
-> ```bash
-> grep -n "overflow\|min-w\|sm:max-w\|sm:text-3xl\|flex-col" src/app/\[store\]/dashboard/inventory/inventory-content.tsx
-> ```
+> **💡 মনে রাখো:** Next.js project-এ `[param]` ফোল্ডার থাকবেই — তাই PowerShell-এ সবসময় `-LiteralPath` ব্যবহার করাটা habit বানিয়ে নাও।
